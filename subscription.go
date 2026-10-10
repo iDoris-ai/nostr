@@ -28,7 +28,7 @@ type Subscription struct {
 	// the Events channel emits all EVENTs that come in a Subscription
 	// will be closed when the subscription ends
 	Events chan Event
-	mu     sync.Mutex
+	mu     sync.RWMutex
 
 	// the EndOfStoredEvents channel receives a value when an EOSE comes for that subscription
 	EndOfStoredEvents chan EndOfStoredEvent
@@ -92,6 +92,10 @@ func (sub *Subscription) dispatchEvent(evt Event) {
 	}
 
 	go func() {
+		// Keep Events open until this dispatch finishes or cancellation unblocks it.
+		sub.mu.RLock()
+		defer sub.mu.RUnlock()
+
 		if isStored {
 			if sub.live.Load() {
 				select {
